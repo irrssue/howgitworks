@@ -107,8 +107,11 @@ function repaintCanvas() {
   const node = getNode(cwd);
   if (!node || node.type !== 'dir') return;
   Object.keys(node.children).forEach(function(childName) {
-    if (node.children[childName].type === 'dir') {
+    const child = node.children[childName];
+    if (child.type === 'dir') {
       spawnFolderIcon(childName);
+    } else if (child.type === 'file') {
+      spawnFileIcon(childName);
     }
   });
 }
@@ -122,6 +125,28 @@ function spawnFolderIcon(name) {
 
   const img = document.createElement('img');
   img.src = 'folder.png';
+  img.alt = name;
+  wrap.appendChild(img);
+
+  const label = document.createElement('div');
+  label.className = 'folder-name';
+  label.textContent = name;
+
+  item.appendChild(wrap);
+  item.appendChild(label);
+
+  visualCanvas.appendChild(item);
+}
+
+function spawnFileIcon(name) {
+  const item = document.createElement('div');
+  item.className = 'folder-item';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'folder-icon-wrap';
+
+  const img = document.createElement('img');
+  img.src = 'file.svg';
   img.alt = name;
   wrap.appendChild(img);
 
@@ -155,6 +180,7 @@ function touchCmd(args) {
   if (!parent || parent.type !== 'dir') { print('touch: cannot create file: No such directory', 'error'); return; }
   if (!parent.children[name]) {
     parent.children[name] = { type: 'file', content: '' };
+    if (parentPath === cwd) spawnFileIcon(name);
   }
 }
 
@@ -170,8 +196,8 @@ function rmCmd(args) {
   const node = parent.children[name];
   if (node.type === 'dir' && !isRecursive) { print('rm: ' + name + ': is a directory (use rm -r)', 'error'); return; }
   delete parent.children[name];
-  // remove folder icon from canvas if visible
-  if (parentPath === cwd && node.type === 'dir') {
+  // remove icon from canvas if visible
+  if (parentPath === cwd && (node.type === 'dir' || node.type === 'file')) {
     const items = visualCanvas.querySelectorAll('.folder-item');
     items.forEach(function(item) {
       const label = item.querySelector('.folder-name');
