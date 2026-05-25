@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How Git Works</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="terminal-wrapper">
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="dot red"></span>
+        <span class="dot yellow"></span>
+        <span class="dot green"></span>
+        <span class="terminal-title">Terminal</span>
+      </div>
+      <div class="terminal-body" id="terminal-body">
+        <div class="output-area" id="output-area"></div>
+        <div class="input-line">
+          <span class="prompt">$</span>
+          <input
+            type="text"
+            id="terminal-input"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="type commands here"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="terminal.js"></script>
+</body>
+</html>
