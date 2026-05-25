@@ -78,7 +78,7 @@ function lsCmd(args) {
   if (!node || node.type !== 'dir') { print('not a directory', 'error'); return; }
   const entries = Object.keys(node.children);
   if (entries.length === 0) { print('(empty)', 'dim'); return; }
-  const out = entries.map(e => node.children[e].type === 'dir' ? e + '/' : e);
+  const out = entries.map(e => node.children[e].type === 'dir' ? e + '/ (folder)' : e);
   print(out.join('  '));
 }
 
