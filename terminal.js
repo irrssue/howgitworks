@@ -241,6 +241,38 @@ function helpCmd() {
 function gitCmd(args) {
   const sub = args[0];
 
+  if (!sub) {
+    print('git — version control for your project', 'info');
+    print('');
+    print('think of git as a save system for code. it tracks every change you make,', 'dim');
+    print('lets you go back in time, and lets you share work with others.', 'dim');
+    print('');
+    print('the basics (in order you usually use them):', 'info');
+    print('');
+    print('  git init', 'success');
+    print('    start tracking this folder. creates a hidden .git/ store.', 'dim');
+    print('    run this once, the first time. you only "init" a project once.', 'dim');
+    print('');
+    print('  git add <file>     (or  git add .  for everything)', 'success');
+    print('    pick which changes you want to save next. this is called "staging".', 'dim');
+    print('    think of it as putting items into a box before sealing it.', 'dim');
+    print('');
+    print('  git commit -m "message"', 'success');
+    print('    seal the box. saves a snapshot of the staged files with a note.', 'dim');
+    print('    the message describes what changed, so you remember later.', 'dim');
+    print('');
+    print('  git remote add origin <url>', 'success');
+    print('    tell git where the online copy lives (e.g. on GitHub).', 'dim');
+    print('    "origin" is just a nickname for that remote location.', 'dim');
+    print('');
+    print('  git push', 'success');
+    print('    upload your commits to the remote. now your code lives online too.', 'dim');
+    print('    teammates can pull it, or you can get it back if your laptop dies.', 'dim');
+    print('');
+    print("type 'help' for full command list, or try 'git init' to begin.", 'dim');
+    return;
+  }
+
   if (sub === 'init') {
     if (gitInitialized) { print('Reinitialized existing Git repository in ' + cwd + '/.git/', 'success'); return; }
     gitInitialized = true;
