@@ -9,14 +9,40 @@ const fs = {
 };
 
 let cwd = '/';
-let gitInitialized = false;
-let stagedFiles = [];
-let committedFiles = [];
-let commits = [];
-let gitRemote = null;
-let currentBranch = 'main';
 let history = [];
 let historyIndex = -1;
+
+// find nearest ancestor dir (including cwd) that has .git
+function findRepo(path) {
+  let p = path;
+  while (true) {
+    const node = getNode(p);
+    if (node && node.type === 'dir' && node.git) return { path: p, node: node };
+    if (p === '/') return null;
+    const { parentPath } = parentAndName(p);
+    p = parentPath;
+  }
+}
+
+function currentRepo() { return findRepo(cwd); }
+
+function newGitState() {
+  return {
+    staged: [],          // file paths relative to repo root
+    committed: [],       // file paths ever committed
+    pushed: [],          // file paths pushed to remote
+    commits: [],
+    remote: null,
+    branch: 'main',
+    hasUnpushedCommits: false
+  };
+}
+
+// path of file relative to repo root
+function relToRepo(repoPath, filePath) {
+  if (repoPath === '/') return filePath.replace(/^\//, '');
+  return filePath.slice(repoPath.length + 1);
+}
 
 function resolvePath(p) {
   if (p.startsWith('/')) return p;
@@ -93,6 +119,17 @@ function cdCmd(args) {
   repaintCanvas();
 }
 
+function fileGitState(repo, fileName) {
+  if (!repo) return null;
+  const g = repo.node.git;
+  const cwdRel = cwd === repo.path ? '' : cwd.slice(repo.path === '/' ? 1 : repo.path.length + 1) + '/';
+  const rel = cwdRel + fileName;
+  if (g.pushed.includes(rel)) return 'pushed';
+  if (g.committed.includes(rel)) return 'committed';
+  if (g.staged.includes(rel)) return 'staged';
+  return 'untracked';
+}
+
 function repaintCanvas() {
   while (visualCanvas.firstChild) visualCanvas.removeChild(visualCanvas.firstChild);
 
@@ -106,17 +143,28 @@ function repaintCanvas() {
 
   const node = getNode(cwd);
   if (!node || node.type !== 'dir') return;
+
+  const repo = currentRepo();
+
+  const grid = document.createElement('div');
+  grid.className = 'icon-grid';
+  visualCanvas.appendChild(grid);
+
   Object.keys(node.children).forEach(function(childName) {
     const child = node.children[childName];
     if (child.type === 'dir') {
-      spawnFolderIcon(childName);
+      spawnFolderIcon(childName, grid, child.git ? true : false);
     } else if (child.type === 'file') {
-      spawnFileIcon(childName);
+      spawnFileIcon(childName, grid, fileGitState(repo, childName));
     }
   });
+
+  if (repo && repo.node.git.remote) {
+    renderCloud(repo);
+  }
 }
 
-function spawnFolderIcon(name) {
+function spawnFolderIcon(name, parent, isRepo) {
   const item = document.createElement('div');
   item.className = 'folder-item';
 
@@ -128,6 +176,13 @@ function spawnFolderIcon(name) {
   img.alt = name;
   wrap.appendChild(img);
 
+  if (isRepo) {
+    const badge = document.createElement('div');
+    badge.className = 'git-badge';
+    badge.textContent = 'git';
+    wrap.appendChild(badge);
+  }
+
   const label = document.createElement('div');
   label.className = 'folder-name';
   label.textContent = name;
@@ -135,12 +190,12 @@ function spawnFolderIcon(name) {
   item.appendChild(wrap);
   item.appendChild(label);
 
-  visualCanvas.appendChild(item);
+  (parent || visualCanvas).appendChild(item);
 }
 
-function spawnFileIcon(name) {
+function spawnFileIcon(name, parent, state) {
   const item = document.createElement('div');
-  item.className = 'folder-item';
+  item.className = 'folder-item file-item state-' + (state || 'untracked');
 
   const wrap = document.createElement('div');
   wrap.className = 'folder-icon-wrap';
@@ -150,6 +205,23 @@ function spawnFileIcon(name) {
   img.alt = name;
   wrap.appendChild(img);
 
+  if (state === 'staged') {
+    const dot = document.createElement('div');
+    dot.className = 'state-badge staged-badge';
+    dot.textContent = 'S';
+    wrap.appendChild(dot);
+  } else if (state === 'committed') {
+    const dot = document.createElement('div');
+    dot.className = 'state-badge committed-badge';
+    dot.textContent = '✓';
+    wrap.appendChild(dot);
+  } else if (state === 'pushed') {
+    const dot = document.createElement('div');
+    dot.className = 'state-badge pushed-badge';
+    dot.textContent = '☁';
+    wrap.appendChild(dot);
+  }
+
   const label = document.createElement('div');
   label.className = 'folder-name';
   label.textContent = name;
@@ -157,7 +229,51 @@ function spawnFileIcon(name) {
   item.appendChild(wrap);
   item.appendChild(label);
 
-  visualCanvas.appendChild(item);
+  (parent || visualCanvas).appendChild(item);
+}
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.keys(attrs || {}).forEach(function(k) { el.setAttribute(k, attrs[k]); });
+  return el;
+}
+
+function renderCloud(repo) {
+  const g = repo.node.git;
+  const synced = !g.hasUnpushedCommits && g.pushed.length > 0;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'cloud-wrap';
+
+  const arrow = document.createElement('div');
+  arrow.className = 'cloud-arrow ' + (synced ? 'arrow-synced' : 'arrow-pending');
+  wrap.appendChild(arrow);
+
+  const cloud = document.createElement('div');
+  cloud.className = 'cloud-icon';
+
+  const svg = svgEl('svg', { viewBox: '0 0 64 48', xmlns: 'http://www.w3.org/2000/svg' });
+  const body = svgEl('path', {
+    d: 'M50 30c0-7-6-12-13-12-1-6-7-10-13-10-7 0-13 5-14 12C4 21 0 26 0 32c0 7 6 12 13 12h35c7 0 12-5 12-11 0-5-4-10-10-12z',
+    fill: '#222', stroke: '#fff', 'stroke-width': '1.5'
+  });
+  const check = svgEl('path', {
+    d: 'M22 22l9 9 13-13',
+    fill: 'none', stroke: '#fff', 'stroke-width': '2.5',
+    'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+    opacity: synced ? '1' : '0.3'
+  });
+  svg.appendChild(body);
+  svg.appendChild(check);
+  cloud.appendChild(svg);
+  wrap.appendChild(cloud);
+
+  const label = document.createElement('div');
+  label.className = 'cloud-label';
+  label.textContent = synced ? 'synced' : 'remote: ' + g.remote;
+  wrap.appendChild(label);
+
+  visualCanvas.appendChild(wrap);
 }
 
 function mkdirCmd(args) {
@@ -168,8 +284,7 @@ function mkdirCmd(args) {
   if (!parent || parent.type !== 'dir') { print('mkdir: cannot create directory: No such file or directory', 'error'); return; }
   if (parent.children[name]) { print('mkdir: ' + name + ': File exists', 'error'); return; }
   parent.children[name] = { type: 'dir', children: {} };
-  // only show icon if created in current view
-  if (parentPath === cwd) spawnFolderIcon(name);
+  if (parentPath === cwd) repaintCanvas();
 }
 
 function touchCmd(args) {
@@ -180,7 +295,7 @@ function touchCmd(args) {
   if (!parent || parent.type !== 'dir') { print('touch: cannot create file: No such directory', 'error'); return; }
   if (!parent.children[name]) {
     parent.children[name] = { type: 'file', content: '' };
-    if (parentPath === cwd) spawnFileIcon(name);
+    if (parentPath === cwd) repaintCanvas();
   }
 }
 
@@ -196,7 +311,15 @@ function rmCmd(args) {
   const node = parent.children[name];
   if (node.type === 'dir' && !isRecursive) { print('rm: ' + name + ': is a directory (use rm -r)', 'error'); return; }
   delete parent.children[name];
-  // remove icon from canvas if visible
+  // strip from any ancestor repo git state
+  const repo = findRepo(parentPath);
+  if (repo && node.type === 'file') {
+    const g = repo.node.git;
+    const rel = relToRepo(repo.path, resolved);
+    g.staged = g.staged.filter(function(f) { return f !== rel; });
+    g.committed = g.committed.filter(function(f) { return f !== rel; });
+    g.pushed = g.pushed.filter(function(f) { return f !== rel; });
+  }
   if (parentPath === cwd && (node.type === 'dir' || node.type === 'file')) {
     const items = visualCanvas.querySelectorAll('.folder-item');
     items.forEach(function(item) {
@@ -274,31 +397,37 @@ function gitCmd(args) {
   }
 
   if (sub === 'init') {
-    if (gitInitialized) { print('Reinitialized existing Git repository in ' + cwd + '/.git/', 'success'); return; }
-    gitInitialized = true;
-    stagedFiles = [];
-    committedFiles = [];
-    commits = [];
+    const node = getNode(cwd);
+    if (!node || node.type !== 'dir') { print('fatal: cwd not a directory', 'error'); return; }
+    if (node.git) { print('Reinitialized existing Git repository in ' + cwd + '/.git/', 'success'); return; }
+    node.git = newGitState();
     print('Initialized empty Git repository in ' + cwd + '/.git/', 'success');
+    repaintCanvas();
     return;
   }
 
-  if (!gitInitialized) { print('fatal: not a git repository', 'error'); return; }
+  const repo = currentRepo();
+  if (!repo) { print('fatal: not a git repository', 'error'); return; }
+  const g = repo.node.git;
 
   if (sub === 'status') {
-    print('On branch ' + currentBranch, 'info');
-    if (stagedFiles.length > 0) {
+    print('On branch ' + g.branch, 'info');
+    if (g.staged.length > 0) {
       print('Changes to be committed:', 'success');
-      stagedFiles.forEach(function(f) { print('  new file: ' + f, 'success'); });
+      g.staged.forEach(function(f) { print('  new file: ' + f, 'success'); });
     }
     const node = getNode(cwd);
     const allFiles = node ? Object.keys(node.children).filter(function(k) { return node.children[k].type === 'file'; }) : [];
-    const unstaged = allFiles.filter(function(f) { return !stagedFiles.includes(f) && !committedFiles.includes(f); });
+    const cwdRel = cwd === repo.path ? '' : cwd.slice(repo.path === '/' ? 1 : repo.path.length + 1) + '/';
+    const unstaged = allFiles.filter(function(f) {
+      const rel = cwdRel + f;
+      return !g.staged.includes(rel) && !g.committed.includes(rel);
+    });
     if (unstaged.length > 0) {
       print('Untracked files:', 'error');
       unstaged.forEach(function(f) { print('  ' + f, 'error'); });
     }
-    if (stagedFiles.length === 0 && unstaged.length === 0) {
+    if (g.staged.length === 0 && unstaged.length === 0) {
       print('nothing to commit, working tree clean', 'dim');
     }
     return;
@@ -309,15 +438,21 @@ function gitCmd(args) {
     if (!target) { print('Nothing specified. Maybe you meant: git add .', 'error'); return; }
     const node = getNode(cwd);
     if (!node) { print('fatal: pathspec did not match any files', 'error'); return; }
+    const cwdRel = cwd === repo.path ? '' : cwd.slice(repo.path === '/' ? 1 : repo.path.length + 1) + '/';
     if (target === '.') {
       const files = Object.keys(node.children).filter(function(k) { return node.children[k].type === 'file'; });
-      files.forEach(function(f) { if (!stagedFiles.includes(f)) stagedFiles.push(f); });
+      files.forEach(function(f) {
+        const rel = cwdRel + f;
+        if (!g.staged.includes(rel)) g.staged.push(rel);
+      });
       print('staged ' + files.length + ' file(s)', 'success');
     } else {
       if (!node.children[target]) { print("fatal: pathspec '" + target + "' did not match any files", 'error'); return; }
-      if (!stagedFiles.includes(target)) stagedFiles.push(target);
+      const rel = cwdRel + target;
+      if (!g.staged.includes(rel)) g.staged.push(rel);
       print('staged ' + target, 'success');
     }
+    repaintCanvas();
     return;
   }
 
@@ -325,17 +460,19 @@ function gitCmd(args) {
     if (args[1] !== '-m') { print('usage: git commit -m "message"', 'error'); return; }
     const msg = args.slice(2).join(' ').replace(/^["']|["']$/g, '');
     if (!msg) { print('error: empty commit message', 'error'); return; }
-    if (stagedFiles.length === 0) { print('nothing to commit, working tree clean', 'dim'); return; }
+    if (g.staged.length === 0) { print('nothing to commit, working tree clean', 'dim'); return; }
     const hash = Math.random().toString(16).slice(2, 9);
-    commits.push({ hash: hash, message: msg, files: stagedFiles.slice(), branch: currentBranch });
-    committedFiles = committedFiles.concat(stagedFiles);
-    stagedFiles = [];
-    print('[' + currentBranch + ' ' + hash + '] ' + msg, 'success');
+    g.commits.push({ hash: hash, message: msg, files: g.staged.slice(), branch: g.branch });
+    g.committed = g.committed.concat(g.staged);
+    g.staged = [];
+    g.hasUnpushedCommits = true;
+    print('[' + g.branch + ' ' + hash + '] ' + msg, 'success');
+    repaintCanvas();
     return;
   }
 
   if (sub === 'log') {
-    const branchCommits = commits.filter(function(c) { return c.branch === currentBranch; });
+    const branchCommits = g.commits.filter(function(c) { return c.branch === g.branch; });
     if (branchCommits.length === 0) { print('(no commits yet)', 'dim'); return; }
     branchCommits.slice().reverse().forEach(function(c) {
       print('commit ' + c.hash, 'info');
@@ -346,10 +483,7 @@ function gitCmd(args) {
   }
 
   if (sub === 'branch') {
-    if (!args[1]) {
-      print('* ' + currentBranch, 'success');
-      return;
-    }
+    if (!args[1]) { print('* ' + g.branch, 'success'); return; }
     print("error: use 'git checkout -b <name>' to create a branch", 'error');
     return;
   }
@@ -358,13 +492,13 @@ function gitCmd(args) {
     if (args[1] === '-b') {
       const name = args[2];
       if (!name) { print('error: branch name required', 'error'); return; }
-      currentBranch = name;
+      g.branch = name;
       print("Switched to a new branch '" + name + "'", 'success');
       return;
     }
     const name = args[1];
     if (!name) { print('error: branch name required', 'error'); return; }
-    currentBranch = name;
+    g.branch = name;
     print("Switched to branch '" + name + "'", 'success');
     return;
   }
@@ -378,14 +512,15 @@ function gitCmd(args) {
 
   if (sub === 'remote') {
     if (args[1] === 'add' && args[2] === 'origin') {
-      gitRemote = args[3] || 'origin';
+      g.remote = args[3] || 'origin';
       print('remote origin added', 'success');
+      repaintCanvas();
       return;
     }
     if (args[1] === '-v') {
-      if (gitRemote) {
-        print('origin  ' + gitRemote + ' (fetch)', 'dim');
-        print('origin  ' + gitRemote + ' (push)', 'dim');
+      if (g.remote) {
+        print('origin  ' + g.remote + ' (fetch)', 'dim');
+        print('origin  ' + g.remote + ' (push)', 'dim');
       } else {
         print('(no remotes)', 'dim');
       }
@@ -396,17 +531,21 @@ function gitCmd(args) {
   }
 
   if (sub === 'push') {
-    if (!gitRemote) { print("fatal: 'origin' does not appear to be a git repository", 'error'); return; }
-    if (commits.length === 0) { print('Everything up-to-date', 'dim'); return; }
-    print('Enumerating objects: ' + commits.length, 'dim');
+    if (!g.remote) { print("fatal: 'origin' does not appear to be a git repository", 'error'); return; }
+    if (g.commits.length === 0) { print('Everything up-to-date', 'dim'); return; }
+    if (!g.hasUnpushedCommits) { print('Everything up-to-date', 'dim'); return; }
+    print('Enumerating objects: ' + g.commits.length, 'dim');
     print('Writing objects: 100%', 'dim');
-    print('To ' + gitRemote, 'success');
-    print(' * [new branch]      ' + currentBranch + ' -> ' + currentBranch, 'success');
+    print('To ' + g.remote, 'success');
+    print(' * [new branch]      ' + g.branch + ' -> ' + g.branch, 'success');
+    g.pushed = g.committed.slice();
+    g.hasUnpushedCommits = false;
+    repaintCanvas();
     return;
   }
 
   if (sub === 'diff') {
-    if (stagedFiles.length === 0 && committedFiles.length === 0) {
+    if (g.staged.length === 0 && g.committed.length === 0) {
       print('(nothing to diff)', 'dim');
     } else {
       print('--- a/file', 'error');

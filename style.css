@@ -136,9 +136,9 @@ body {
   width: 100%;
   min-height: 100%;
   display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: 32px;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 16px;
   padding: 16px;
 }
 
@@ -223,4 +223,121 @@ body {
   font-family: 'Courier New', Courier, monospace;
   padding: 0 6px;
   white-space: nowrap;
+}
+
+/* ── grid container for file/folder icons ── */
+.icon-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  flex: 1;
+}
+
+/* ── git repo badge on folder ── */
+.git-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background: #f1502f;
+  color: #fff;
+  font-size: 9px;
+  font-weight: bold;
+  font-family: 'Courier New', Courier, monospace;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid #000;
+  letter-spacing: 0.5px;
+}
+
+/* ── file state badges ── */
+.state-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #000;
+  color: #000;
+}
+
+.staged-badge    { background: #febc2e; }
+.committed-badge { background: #28c840; color: #000; }
+.pushed-badge    { background: #6af; color: #000; font-size: 12px; }
+
+/* tint file icon by state */
+.file-item.state-staged    .folder-icon-wrap img { filter: drop-shadow(0 0 6px #febc2e); }
+.file-item.state-committed .folder-icon-wrap img { filter: drop-shadow(0 0 6px #28c840); }
+.file-item.state-pushed    .folder-icon-wrap img { filter: drop-shadow(0 0 8px #6af); }
+
+/* ── cloud + arrow ── */
+.cloud-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  padding: 16px;
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.cloud-arrow {
+  width: 80px;
+  height: 2px;
+  position: relative;
+}
+
+.cloud-arrow::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: -5px;
+  border-left: 8px solid;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.arrow-pending {
+  background-image: linear-gradient(to right, #555 50%, transparent 50%);
+  background-size: 8px 2px;
+  background-repeat: repeat-x;
+}
+
+.arrow-pending::after { border-left-color: #555; }
+
+.arrow-synced {
+  background: #28c840;
+  box-shadow: 0 0 8px #28c840;
+  animation: pulseArrow 1.2s ease-in-out;
+}
+
+.arrow-synced::after {
+  border-left-color: #28c840;
+  filter: drop-shadow(0 0 4px #28c840);
+}
+
+@keyframes pulseArrow {
+  0%   { opacity: 0.3; transform: scaleX(0); transform-origin: left; }
+  100% { opacity: 1; transform: scaleX(1); transform-origin: left; }
+}
+
+.cloud-icon {
+  width: 64px;
+  height: 48px;
+}
+
+.cloud-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.cloud-label {
+  color: #ccc;
+  font-size: 11px;
+  font-family: 'Courier New', Courier, monospace;
+  margin-left: 4px;
 }
