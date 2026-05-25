@@ -170,6 +170,17 @@ function rmCmd(args) {
   const node = parent.children[name];
   if (node.type === 'dir' && !isRecursive) { print('rm: ' + name + ': is a directory (use rm -r)', 'error'); return; }
   delete parent.children[name];
+  // remove folder icon from canvas if visible
+  if (parentPath === cwd && node.type === 'dir') {
+    const items = visualCanvas.querySelectorAll('.folder-item');
+    items.forEach(function(item) {
+      const label = item.querySelector('.folder-name');
+      if (label && label.textContent === name) {
+        item.classList.add('removing');
+        item.addEventListener('animationend', function() { item.remove(); }, { once: true });
+      }
+    });
+  }
 }
 
 function pwdCmd() {

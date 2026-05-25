@@ -164,6 +164,22 @@ body {
   }
 }
 
+@keyframes popOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+.folder-item.removing {
+  animation: popOut 0.25s cubic-bezier(0.36, 0, 0.66, -0.56) both;
+  pointer-events: none;
+}
+
 .folder-icon-wrap {
   position: relative;
   width: 72px;
