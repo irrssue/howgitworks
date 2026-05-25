@@ -53,10 +53,15 @@ In-memory JS object tree rooted at `/`. State resets on page reload. No persiste
 
 ## Development rules
 
-### Before committing
+### After every change — automated git flow (no confirmation needed)
 
-1. `git add` only the files changed — never `git add -A` blindly
-2. No secrets, no `.env` files committed
+User has granted full git permission. After every code change:
+
+1. `git add <changed files>` — only changed files, never `git add -A` blindly
+2. Write and run commit with message following format below
+3. `git push origin main` — always push immediately after commit
+
+Do all three steps autonomously. No asking for confirmation. No secrets or `.env` files committed.
 
 ### Commit message format
 
