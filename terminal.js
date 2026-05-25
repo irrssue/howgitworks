@@ -159,9 +159,171 @@ function repaintCanvas() {
     }
   });
 
-  if (repo && repo.node.git.remote) {
-    renderCloud(repo);
+  if (repo) {
+    renderPipeline(repo);
   }
+}
+
+function renderPipeline(repo) {
+  const g = repo.node.git;
+  const hasCommits = g.commits.length > 0;
+  const hasRemote = !!g.remote;
+  const synced = hasRemote && !g.hasUnpushedCommits && g.pushed.length > 0;
+
+  // arrow activation
+  const addActive = g.staged.length > 0 || hasCommits || g.pushed.length > 0;
+  const commitActive = hasCommits || g.pushed.length > 0;
+  const pushActive = synced;
+
+  // bucket files by furthest stage
+  const workingFiles = [];
+  const stagedFiles = g.staged.slice();
+  const committedFiles = [];
+  const pushedFiles = g.pushed.slice();
+
+  g.committed.forEach(function(f) {
+    if (!g.pushed.includes(f)) committedFiles.push(f);
+  });
+
+  // working = files in cwd not yet staged/committed/pushed
+  const node = getNode(cwd);
+  if (node && node.type === 'dir') {
+    const cwdRel = cwd === repo.path ? '' : cwd.slice(repo.path === '/' ? 1 : repo.path.length + 1) + '/';
+    Object.keys(node.children).forEach(function(name) {
+      if (node.children[name].type !== 'file') return;
+      const rel = cwdRel + name;
+      if (!g.staged.includes(rel) && !g.committed.includes(rel) && !g.pushed.includes(rel)) {
+        workingFiles.push(rel);
+      }
+    });
+  }
+
+  const pipe = document.createElement('div');
+  pipe.className = 'pipeline';
+
+  pipe.appendChild(buildStage('Working Dir', 'working', workingFiles));
+  pipe.appendChild(buildArrow('git add', addActive));
+  pipe.appendChild(buildStage('Staging', 'staged', stagedFiles));
+  pipe.appendChild(buildArrow('git commit', commitActive));
+  pipe.appendChild(buildStage('Local Repo', 'committed', committedFiles, hasCommits ? g.commits.length : 0));
+
+  if (hasRemote) {
+    pipe.appendChild(buildArrow('git push', pushActive));
+    pipe.appendChild(buildCloudStage(g.remote, pushedFiles, synced));
+  } else {
+    pipe.appendChild(buildArrow('connect remote first', false, true));
+    pipe.appendChild(buildStage('Remote', 'remote-empty', [], 0, true));
+  }
+
+  visualCanvas.appendChild(pipe);
+}
+
+function buildStage(title, kind, files, commitBadge, dim) {
+  const box = document.createElement('div');
+  box.className = 'stage stage-' + kind + (dim ? ' stage-dim' : '');
+
+  const head = document.createElement('div');
+  head.className = 'stage-title';
+  head.textContent = title;
+  box.appendChild(head);
+
+  const body = document.createElement('div');
+  body.className = 'stage-body';
+
+  if (files.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'stage-empty';
+    empty.textContent = '∅';
+    body.appendChild(empty);
+  } else {
+    files.forEach(function(f) {
+      const chip = document.createElement('div');
+      chip.className = 'file-chip chip-' + kind;
+      chip.textContent = f;
+      body.appendChild(chip);
+    });
+  }
+  box.appendChild(body);
+
+  if (commitBadge && commitBadge > 0) {
+    const cb = document.createElement('div');
+    cb.className = 'commit-badge';
+    cb.textContent = commitBadge + ' commit' + (commitBadge > 1 ? 's' : '');
+    box.appendChild(cb);
+  }
+
+  return box;
+}
+
+function buildCloudStage(remoteUrl, files, synced) {
+  const box = document.createElement('div');
+  box.className = 'stage stage-cloud' + (synced ? ' cloud-synced' : '');
+
+  const head = document.createElement('div');
+  head.className = 'stage-title';
+  head.textContent = 'Remote (GitHub)';
+  box.appendChild(head);
+
+  const svgWrap = document.createElement('div');
+  svgWrap.className = 'cloud-svg-wrap';
+  const svg = svgEl('svg', { viewBox: '0 0 64 48' });
+  const body = svgEl('path', {
+    d: 'M50 30c0-7-6-12-13-12-1-6-7-10-13-10-7 0-13 5-14 12C4 21 0 26 0 32c0 7 6 12 13 12h35c7 0 12-5 12-11 0-5-4-10-10-12z',
+    fill: synced ? '#0d2818' : '#222',
+    stroke: synced ? '#28c840' : '#666',
+    'stroke-width': '1.5'
+  });
+  svg.appendChild(body);
+  if (synced) {
+    const check = svgEl('path', {
+      d: 'M22 22l9 9 13-13',
+      fill: 'none', stroke: '#28c840', 'stroke-width': '3',
+      'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+    });
+    svg.appendChild(check);
+  }
+  svgWrap.appendChild(svg);
+  box.appendChild(svgWrap);
+
+  const filesBody = document.createElement('div');
+  filesBody.className = 'stage-body';
+  if (files.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'stage-empty';
+    empty.textContent = '∅';
+    filesBody.appendChild(empty);
+  } else {
+    files.forEach(function(f) {
+      const chip = document.createElement('div');
+      chip.className = 'file-chip chip-pushed';
+      chip.textContent = f;
+      filesBody.appendChild(chip);
+    });
+  }
+  box.appendChild(filesBody);
+
+  const url = document.createElement('div');
+  url.className = 'cloud-url';
+  url.textContent = remoteUrl;
+  box.appendChild(url);
+
+  return box;
+}
+
+function buildArrow(label, active, warn) {
+  const arrow = document.createElement('div');
+  arrow.className = 'pipe-arrow' + (active ? ' arrow-active' : '') + (warn ? ' arrow-warn' : '');
+
+  const lbl = document.createElement('div');
+  lbl.className = 'arrow-label';
+  lbl.textContent = label;
+  arrow.appendChild(lbl);
+
+  const line = document.createElement('div');
+  line.className = 'arrow-line';
+  arrow.appendChild(line);
+
+  return arrow;
 }
 
 function spawnFolderIcon(name, parent, isRepo) {
@@ -238,43 +400,6 @@ function svgEl(tag, attrs) {
   return el;
 }
 
-function renderCloud(repo) {
-  const g = repo.node.git;
-  const synced = !g.hasUnpushedCommits && g.pushed.length > 0;
-
-  const wrap = document.createElement('div');
-  wrap.className = 'cloud-wrap';
-
-  const arrow = document.createElement('div');
-  arrow.className = 'cloud-arrow ' + (synced ? 'arrow-synced' : 'arrow-pending');
-  wrap.appendChild(arrow);
-
-  const cloud = document.createElement('div');
-  cloud.className = 'cloud-icon';
-
-  const svg = svgEl('svg', { viewBox: '0 0 64 48', xmlns: 'http://www.w3.org/2000/svg' });
-  const body = svgEl('path', {
-    d: 'M50 30c0-7-6-12-13-12-1-6-7-10-13-10-7 0-13 5-14 12C4 21 0 26 0 32c0 7 6 12 13 12h35c7 0 12-5 12-11 0-5-4-10-10-12z',
-    fill: '#222', stroke: '#fff', 'stroke-width': '1.5'
-  });
-  const check = svgEl('path', {
-    d: 'M22 22l9 9 13-13',
-    fill: 'none', stroke: '#fff', 'stroke-width': '2.5',
-    'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-    opacity: synced ? '1' : '0.3'
-  });
-  svg.appendChild(body);
-  svg.appendChild(check);
-  cloud.appendChild(svg);
-  wrap.appendChild(cloud);
-
-  const label = document.createElement('div');
-  label.className = 'cloud-label';
-  label.textContent = synced ? 'synced' : 'remote: ' + g.remote;
-  wrap.appendChild(label);
-
-  visualCanvas.appendChild(wrap);
-}
 
 function mkdirCmd(args) {
   if (!args[0]) { print('mkdir: missing operand', 'error'); return; }

@@ -136,9 +136,9 @@ body {
   width: 100%;
   min-height: 100%;
   display: flex;
-  flex-wrap: nowrap;
-  align-items: flex-start;
-  gap: 16px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 24px;
   padding: 16px;
 }
 
@@ -275,69 +275,165 @@ body {
 .file-item.state-committed .folder-icon-wrap img { filter: drop-shadow(0 0 6px #28c840); }
 .file-item.state-pushed    .folder-icon-wrap img { filter: drop-shadow(0 0 8px #6af); }
 
-/* ── cloud + arrow ── */
-.cloud-wrap {
+/* ── pipeline diagram (git stages) ── */
+.pipeline {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-left: auto;
-  padding: 16px;
-  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  align-items: stretch;
+  gap: 4px;
+  padding: 16px 8px;
+  border-top: 1px dashed #333;
+  margin-top: auto;
+  overflow-x: auto;
+  font-family: 'Courier New', Courier, monospace;
 }
 
-.cloud-arrow {
-  width: 80px;
+.stage {
+  flex: 1;
+  min-width: 110px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #0a0a0a;
+  position: relative;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.stage-dim { opacity: 0.4; }
+
+.stage-title {
+  color: #888;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+  border-bottom: 1px solid #222;
+  padding-bottom: 4px;
+}
+
+.stage-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 40px;
+  justify-content: center;
+}
+
+.stage-empty {
+  color: #333;
+  text-align: center;
+  font-size: 18px;
+}
+
+.file-chip {
+  font-size: 10px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  border: 1px solid;
+  text-align: center;
+  word-break: break-all;
+  animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.chip-working   { color: #ccc;    border-color: #555; background: #1a1a1a; }
+.chip-staged    { color: #febc2e; border-color: #febc2e; background: #2a1f08; }
+.chip-committed { color: #28c840; border-color: #28c840; background: #082a10; }
+.chip-pushed    { color: #6af;    border-color: #6af;    background: #08182a; }
+
+.stage-staged    { border-color: #febc2e; box-shadow: 0 0 8px rgba(254,188,46,0.2); }
+.stage-committed { border-color: #28c840; box-shadow: 0 0 8px rgba(40,200,64,0.2); }
+.stage-cloud.cloud-synced { border-color: #28c840; box-shadow: 0 0 12px rgba(40,200,64,0.3); }
+
+.commit-badge {
+  font-size: 9px;
+  color: #28c840;
+  text-align: center;
+  border-top: 1px solid #222;
+  padding-top: 4px;
+  letter-spacing: 0.5px;
+}
+
+/* ── arrows between stages ── */
+.pipe-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 70px;
+  position: relative;
+  padding: 0 4px;
+}
+
+.arrow-label {
+  font-size: 9px;
+  color: #555;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+.arrow-line {
+  width: 100%;
   height: 2px;
+  background-image: linear-gradient(to right, #333 50%, transparent 50%);
+  background-size: 8px 2px;
+  background-repeat: repeat-x;
   position: relative;
 }
 
-.cloud-arrow::after {
+.arrow-line::after {
   content: '';
   position: absolute;
   right: -2px;
   top: -5px;
-  border-left: 8px solid;
+  border-left: 8px solid #333;
   border-top: 6px solid transparent;
   border-bottom: 6px solid transparent;
 }
 
-.arrow-pending {
-  background-image: linear-gradient(to right, #555 50%, transparent 50%);
-  background-size: 8px 2px;
-  background-repeat: repeat-x;
-}
-
-.arrow-pending::after { border-left-color: #555; }
-
-.arrow-synced {
+.pipe-arrow.arrow-active .arrow-label { color: #28c840; }
+.pipe-arrow.arrow-active .arrow-line {
   background: #28c840;
-  box-shadow: 0 0 8px #28c840;
-  animation: pulseArrow 1.2s ease-in-out;
+  box-shadow: 0 0 6px rgba(40,200,64,0.5);
+  animation: arrowFlow 0.6s ease-out;
 }
-
-.arrow-synced::after {
+.pipe-arrow.arrow-active .arrow-line::after {
   border-left-color: #28c840;
-  filter: drop-shadow(0 0 4px #28c840);
+  filter: drop-shadow(0 0 3px #28c840);
 }
 
-@keyframes pulseArrow {
-  0%   { opacity: 0.3; transform: scaleX(0); transform-origin: left; }
-  100% { opacity: 1; transform: scaleX(1); transform-origin: left; }
+.pipe-arrow.arrow-warn .arrow-label { color: #febc2e; }
+
+@keyframes arrowFlow {
+  from { transform: scaleX(0); transform-origin: left; }
+  to   { transform: scaleX(1); transform-origin: left; }
 }
 
-.cloud-icon {
-  width: 64px;
-  height: 48px;
+/* ── cloud stage ── */
+.stage-cloud {
+  min-width: 130px;
 }
 
-.cloud-icon svg {
-  width: 100%;
-  height: 100%;
+.cloud-svg-wrap {
+  display: flex;
+  justify-content: center;
+  height: 40px;
 }
 
-.cloud-label {
-  color: #ccc;
-  font-size: 11px;
-  font-family: 'Courier New', Courier, monospace;
-  margin-left: 4px;
+.cloud-svg-wrap svg {
+  width: 50px;
+  height: 40px;
 }
+
+.cloud-url {
+  font-size: 9px;
+  color: #555;
+  text-align: center;
+  word-break: break-all;
+  border-top: 1px solid #222;
+  padding-top: 4px;
+}
+
+.stage-cloud.cloud-synced .cloud-url { color: #28c840; }
