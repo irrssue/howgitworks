@@ -1,6 +1,8 @@
 const input = document.getElementById('terminal-input');
 const outputArea = document.getElementById('output-area');
 const terminalBody = document.getElementById('terminal-body');
+const visualCanvas = document.getElementById('visual-canvas');
+
 
 const fs = {
   '/': { type: 'dir', children: {} }
@@ -46,6 +48,12 @@ function parentAndName(path) {
   return { parentPath: parentPath || '/', name };
 }
 
+const promptEl = document.getElementById('prompt');
+
+function updatePrompt() {
+  promptEl.textContent = (cwd === '/' ? '/' : cwd) + ' $';
+}
+
 function print(text, cls) {
   const line = document.createElement('div');
   line.className = 'output-line' + (cls ? ' ' + cls : '');
@@ -55,7 +63,8 @@ function print(text, cls) {
 }
 
 function printCommand(text) {
-  print('$ ' + text, 'command');
+  const label = (cwd === '/' ? '/' : cwd) + ' $ ';
+  print(label + text, 'command');
 }
 
 function clearOutput() {
@@ -74,12 +83,56 @@ function lsCmd(args) {
 }
 
 function cdCmd(args) {
-  if (!args[0] || args[0] === '~') { cwd = '/'; return; }
+  if (!args[0] || args[0] === '~') { cwd = '/'; updatePrompt(); repaintCanvas(); return; }
   const target = resolvePath(args[0]);
   const node = getNode(target);
   if (!node) { print('cd: ' + args[0] + ': No such file or directory', 'error'); return; }
   if (node.type !== 'dir') { print('cd: ' + args[0] + ': Not a directory', 'error'); return; }
   cwd = target;
+  updatePrompt();
+  repaintCanvas();
+}
+
+function repaintCanvas() {
+  while (visualCanvas.firstChild) visualCanvas.removeChild(visualCanvas.firstChild);
+
+  if (cwd === '/') {
+    visualCanvas.classList.remove('canvas-open');
+    visualCanvas.removeAttribute('data-name');
+  } else {
+    visualCanvas.classList.add('canvas-open');
+    visualCanvas.dataset.name = cwd.split('/').filter(Boolean).pop();
+  }
+
+  const node = getNode(cwd);
+  if (!node || node.type !== 'dir') return;
+  Object.keys(node.children).forEach(function(childName) {
+    if (node.children[childName].type === 'dir') {
+      spawnFolderIcon(childName);
+    }
+  });
+}
+
+function spawnFolderIcon(name) {
+  const item = document.createElement('div');
+  item.className = 'folder-item';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'folder-icon-wrap';
+
+  const img = document.createElement('img');
+  img.src = 'folder.png';
+  img.alt = name;
+  wrap.appendChild(img);
+
+  const label = document.createElement('div');
+  label.className = 'folder-name';
+  label.textContent = name;
+
+  item.appendChild(wrap);
+  item.appendChild(label);
+
+  visualCanvas.appendChild(item);
 }
 
 function mkdirCmd(args) {
@@ -90,6 +143,8 @@ function mkdirCmd(args) {
   if (!parent || parent.type !== 'dir') { print('mkdir: cannot create directory: No such file or directory', 'error'); return; }
   if (parent.children[name]) { print('mkdir: ' + name + ': File exists', 'error'); return; }
   parent.children[name] = { type: 'dir', children: {} };
+  // only show icon if created in current view
+  if (parentPath === cwd) spawnFolderIcon(name);
 }
 
 function touchCmd(args) {

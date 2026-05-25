@@ -8,15 +8,23 @@ body {
   background: #000;
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
   font-family: 'Courier New', Courier, monospace;
 }
 
-.terminal-wrapper {
+/* ── Two-column grid ── */
+.app-grid {
+  display: grid;
+  grid-template-columns: 480px 1fr;
   width: 100%;
-  max-width: 780px;
+  min-height: 100vh;
+}
+
+/* ── Left: terminal column ── */
+.terminal-wrapper {
   padding: 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 .terminal {
@@ -24,9 +32,10 @@ body {
   border: 1px solid #fff;
   border-radius: 6px;
   overflow: hidden;
-  min-height: 420px;
+  flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 420px;
 }
 
 .terminal-header {
@@ -64,6 +73,7 @@ body {
   flex-direction: column;
   gap: 4px;
   cursor: text;
+  overflow-y: auto;
 }
 
 .output-area {
@@ -81,25 +91,11 @@ body {
   word-break: break-word;
 }
 
-.output-line.command {
-  color: #fff;
-}
-
-.output-line.error {
-  color: #ff5f57;
-}
-
-.output-line.success {
-  color: #28c840;
-}
-
-.output-line.info {
-  color: #6af;
-}
-
-.output-line.dim {
-  color: #555;
-}
+.output-line.command { color: #fff; }
+.output-line.error   { color: #ff5f57; }
+.output-line.success { color: #28c840; }
+.output-line.info    { color: #6af; }
+.output-line.dim     { color: #555; }
 
 .input-line {
   display: flex;
@@ -125,6 +121,90 @@ body {
   caret-color: #fff;
 }
 
-#terminal-input::placeholder {
-  color: #444;
+#terminal-input::placeholder { color: #444; }
+
+/* ── Right: visual panel ── */
+.visual-panel {
+  border-left: 1px solid #222;
+  padding: 24px;
+  overflow: auto;
+  position: relative;
+}
+
+.visual-canvas {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 32px;
+  padding: 16px;
+}
+
+/* ── Folder item ── */
+.folder-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  /* pop-in animation */
+  animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.folder-icon-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+}
+
+.folder-icon-wrap img {
+  width: 72px;
+  height: 72px;
+  display: block;
+}
+
+/* folder name label */
+.folder-name {
+  color: #ccc;
+  font-size: 12px;
+  font-family: 'Courier New', Courier, monospace;
+  text-align: center;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* canvas becomes bordered folder view when inside a dir */
+.visual-canvas.canvas-open {
+  border: 1px solid #fff;
+  border-radius: 4px;
+  padding-top: 32px;
+}
+
+.visual-canvas.canvas-open::before {
+  content: attr(data-name);
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #000;
+  color: #fff;
+  font-size: 11px;
+  font-family: 'Courier New', Courier, monospace;
+  padding: 0 6px;
+  white-space: nowrap;
 }
